@@ -290,6 +290,16 @@ class OpenAIJsonSchemaTransformer(JsonSchemaTransformer):
             else:
                 self.is_strict_compatible = False
 
+        if schema_type == 'array' and schema.get('items') == {}:
+            # Bare `list` annotations generate `items: {}`, which OpenAI strict mode rejects.
+            if self.strict is True:
+                raise UserError(
+                    'OpenAI strict mode does not support bare `list` annotations. '
+                    'Annotate the item type (for example `list[str]`) or disable strict mode.'
+                )
+            elif self.strict is None:
+                self.is_strict_compatible = False
+
         if schema_type == 'object':
             # Always ensure 'properties' key exists - OpenAI drops objects without it
             if 'properties' not in schema:

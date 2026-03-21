@@ -1800,6 +1800,10 @@ def tool_with_lists(x: list[int], y: list[MyDefaultDc]) -> str:
     return f'{x} {y}'  # pragma: no cover
 
 
+def tool_with_bare_list(items: list) -> str:
+    return f'{items}'  # pragma: no cover
+
+
 def tool_with_tuples(x: tuple[int], y: tuple[str] = ('abc',)) -> str:
     return f'{x} {y}'  # pragma: no cover
 
@@ -2229,6 +2233,19 @@ def tool_with_tuples(x: tuple[int], y: tuple[str] = ('abc',)) -> str:
             snapshot(True),
         ),
         (
+            tool_with_bare_list,
+            None,
+            snapshot(
+                {
+                    'additionalProperties': False,
+                    'properties': {'items': {'items': {}, 'type': 'array'}},
+                    'required': ['items'],
+                    'type': 'object',
+                }
+            ),
+            snapshot(None),
+        ),
+        (
             tool_with_tuples,
             None,
             snapshot(
@@ -2308,6 +2325,23 @@ async def test_strict_mode_cannot_infer_strict(
             openai_model_profile('test-model')
         ),
     )
+
+
+async def test_bare_list_tool_with_explicit_strict_raises_user_error(allow_model_requests: None):
+    c = completion_message(ChatCompletionMessage(content='world', role='assistant'))
+    mock_client = MockOpenAI.create_mock(c)
+    m = OpenAIChatModel('gpt-4o', provider=OpenAIProvider(openai_client=mock_client))
+    agent = Agent(m)
+
+    agent.tool_plain(strict=True)(tool_with_bare_list)
+
+    with pytest.raises(
+        UserError,
+        match='OpenAI strict mode does not support bare `list` annotations',
+    ):
+        await agent.run('hello')
+
+    assert get_mock_chat_completion_kwargs(mock_client) == []
 
 
 def test_strict_schema():
